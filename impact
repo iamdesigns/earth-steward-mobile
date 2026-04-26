@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Earth Steward — Impact</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: #1a1a1a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: -apple-system, 'SF Pro Display', sans-serif;
+}
+
+.phone {
+  width: 390px;
+  height: 844px;
+  background: #0A0F0C;
+  border-radius: 54px;
+  border: 6px solid #2a2a2a;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.8), inset 0 0 0 1px #333;
+}
+
+/* Status bar */
+.status-bar {
+  height: 54px;
+  background: #0A0F0C;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 28px 8px;
+  flex-shrink: 0;
+  z-index: 200;
+}
+.status-time { font-size: 15px; font-weight: 600; color: #E8F5EE; }
+.status-icons { display: flex; align-items: center; gap: 6px; }
+.status-icons svg { width: 16px; height: 16px; fill: #E8F5EE; }
+
+/* Header */
+.header {
+  background: #0A0F0C;
+  padding: 6px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 200;
+}
+.header-left { display: flex; align-items: center; gap: 8px; }
+.back-btn { width: 28px; height: 28px; background: #1A2B1E; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; }
+.header-title { font-size: 17px; font-weight: 600; color: #E8F5EE; }
+.header-stage { font-size: 11px; color: #4A6B54; margin-top: 1px; }
+.offline-badge { background: #1A2B1E; border: 1px solid #4A6B54; border-radius: 20px; padding: 4px 10px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: #8FAF99; }
+.offline-dot { width: 6px; height: 6px; border-radius: 50%; background: #8FAF99; }
+
+/* Zone briefing */
+.zone-brief {
+  background: #111A13;
+  border-bottom: 1px solid #1A2B1E;
+  padding: 10px 16px;
+  flex-shrink: 0;
+  z-index: 200;
+}
+.zone-title { font-size: 12px; font-weight: 700; color: #2D7A4F; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.zone-desc { font-size: 12px; color: #8FAF99; line-height: 1.5; }
+.zone-alert { background: rgba(229,255,44,0.1); border: 1px solid rgba(229,255,44,0.3); border-radius: 6px; padding: 6px 10px; margin-top: 8px; display: flex; align-items: flex-start; gap: 6px; }
+.zone-alert-text { font-size: 11px; color: #E5FF2C; line-height: 1.4; }
+
+/* Map area */
+.map-container {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#map { width: 100%; height: 100%; }
+
+/* Map tools overlay */
+.map-tools {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.map-tool-btn {
+  width: 40px;
+  height: 40px;
+  background: rgba(10,15,12,0.92);
+  border: 1px solid #1A2B1E;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 0.15s;
+}
+.map-tool-btn:hover, .map-tool-btn.active { background: #1A2B1E; border-color: #2D7A4F; }
+.map-tool-btn svg { width: 18px; height: 18px; stroke: #8FAF99; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.map-tool-btn.active svg { stroke: #2D7A4F; }
+
+/* Camera button */
+.camera-btn {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  width: 72px;
+  height: 72px;
+  background: #2D7A4F;
+  border-radius: 50%;
+  border: 4px solid #0A0F0C;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(45,122,79,0.5);
+  transition: all 0.15s;
+}
+.camera-btn:active { transform: translateX(-50%) scale(0.95); }
+.camera-btn svg { width: 28px; height: 28px; stroke: #E8F5EE; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.camera-label { position: absolute; bottom: 96px; left: 50%; transform: translateX(-50%); font-size: 11px; color: #8FAF99; white-space: nowrap; z-index: 500; background: rgba(10,15,12,0.8); padding: 3px 8px; border-radius: 10px; }
+
+/* Field log drawer */
+.field-log {
+  background: #111A13;
+  border-top: 1px solid #1A2B1E;
+  flex-shrink: 0;
+  z-index: 200;
+  max-height: 220px;
+}
+.log-header {
+  padding: 10px 16px 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.log-handle { width: 36px; height: 4px; background: #1A2B1E; border-radius: 2px; margin: 0 auto 8px; }
+.log-title { font-size: 12px; font-weight: 700; color: #E8F5EE; text-transform: uppercase; letter-spacing: 0.5px; }
+.log-count { background: #2D7A4F; color: #E8F5EE; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.log-items { padding: 0 12px 8px; overflow-y: auto; max-height: 140px; }
+.log-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  margin-bottom: 4px;
+  background: #0A0F0C;
+  cursor: pointer;
+}
+.log-item:hover { background: #1A2B1E; }
+.log-emoji { font-size: 16px; width: 28px; text-align: center; flex-shrink: 0; }
+.log-info { flex: 1; }
+.log-name { font-size: 12px; font-weight: 500; color: #E8F5EE; }
+.log-meta { font-size: 10px; color: #4A6B54; margin-top: 1px; }
+.log-tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 500; flex-shrink: 0; }
+.tag-vegetation { background: rgba(45,122,79,0.2); color: #2D7A4F; }
+.tag-wildlife { background: rgba(91,155,213,0.2); color: #5B9BD5; }
+.tag-pest { background: rgba(229,255,44,0.15); color: #E5FF2C; }
+.tag-terrain { background: rgba(74,107,84,0.3); color: #8FAF99; }
+.tag-concern { background: rgba(224,85,85,0.2); color: #E05555; }
+.log-pending { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-radius: 8px; background: rgba(229,255,44,0.05); border: 1px dashed rgba(229,255,44,0.2); margin-bottom: 4px; }
+.log-pending-text { font-size: 11px; color: #E5FF2C; }
+
+/* Continue button */
+.continue-row {
+  padding: 8px 16px 10px;
+  background: #111A13;
+  flex-shrink: 0;
+}
+.continue-btn {
+  background: #2D7A4F;
+  border: none;
+  border-radius: 12px;
+  width: 100%;
+  padding: 13px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #E8F5EE;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* Tab bar */
+.tab-bar {
+  background: #0A0F0C;
+  border-top: 1px solid #1A2B1E;
+  height: 82px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding: 10px 0 0;
+  flex-shrink: 0;
+  z-index: 200;
+}
+.tab { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 0 12px; }
+.tab svg { width: 24px; height: 24px; stroke: #4A6B54; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.tab-label { font-size: 10px; color: #4A6B54; }
+.tab.active svg { stroke: #2D7A4F; }
+.tab.active .tab-label { color: #2D7A4F; }
+
+/* Modal */
+.modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.7);
+  z-index: 1000;
+  display: none;
+  align-items: flex-end;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #111A13;
+  border-radius: 20px 20px 0 0;
+  padding: 16px;
+  width: 100%;
+  border-top: 1px solid #1A2B1E;
+}
+.modal-handle { width: 36px; height: 4px; background: #1A2B1E; border-radius: 2px; margin: 0 auto 14px; }
+.modal-title { font-size: 15px; font-weight: 700; color: #E8F5EE; margin-bottom: 12px; }
+.modal-subtitle { font-size: 12px; color: #8FAF99; margin-bottom: 12px; line-height: 1.4; }
+.modal-input {
+  width: 100%;
+  background: #0A0F0C;
+  border: 1px solid #1A2B1E;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #E8F5EE;
+  font-size: 14px;
+  font-family: inherit;
+  margin-bottom: 8px;
+  resize: none;
+  height: 80px;
+}
+.modal-input:focus { outline: none; border-color: #2D7A4F; }
+.modal-cats { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.modal-cat {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: #0A0F0C;
+  color: #8FAF99;
+  border-color: #1A2B1E;
+}
+.modal-cat.selected { background: #1A2B1E; color: #2D7A4F; border-color: #2D7A4F; }
+.modal-btns { display: flex; gap: 8px; }
+.modal-cancel { flex: 1; background: #0A0F0C; border: 1px solid #1A2B1E; border-radius: 10px; padding: 11px; color: #8FAF99; font-size: 14px; cursor: pointer; font-family: inherit; }
+.modal-save { flex: 2; background: #2D7A4F; border: none; border-radius: 10px; padding: 11px; color: #E8F5EE; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+/* SAM result modal */
+.sam-modal-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.85);
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+}
+.sam-modal-overlay.show { display: flex; }
+.sam-header {
+  padding: 60px 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.sam-title { font-size: 15px; font-weight: 700; color: #E8F5EE; }
+.sam-close { background: rgba(255,255,255,0.1); border: none; border-radius: 20px; padding: 5px 12px; color: #E8F5EE; font-size: 13px; cursor: pointer; font-family: inherit; }
+.sam-image {
+  flex: 1;
+  background: #0A0F0C;
+  margin: 0 16px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #1A2B1E;
+}
+.sam-placeholder { text-align: center; }
+.sam-placeholder-icon { font-size: 48px; margin-bottom: 12px; }
+.sam-placeholder-text { font-size: 13px; color: #4A6B54; }
+.sam-detections { padding: 12px 16px; }
+.sam-detection-title { font-size: 11px; color: #4A6B54; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.sam-items { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+.sam-item { background: #111A13; border-radius: 10px; padding: 8px 12px; display: flex; align-items: center; gap: 10px; border: 1px solid #1A2B1E; }
+.sam-item-emoji { font-size: 18px; }
+.sam-item-info { flex: 1; }
+.sam-item-name { font-size: 13px; font-weight: 500; color: #E8F5EE; }
+.sam-item-conf { font-size: 10px; color: #4A6B54; margin-top: 2px; }
+.sam-item-check { width: 20px; height: 20px; border-radius: 50%; background: #2D7A4F; display: flex; align-items: center; justify-content: center; font-size: 11px; color: white; }
+.sam-confirm { margin: 8px 16px 16px; background: #2D7A4F; border: none; border-radius: 12px; width: calc(100% - 32px); padding: 13px; font-size: 15px; font-weight: 600; color: #E8F5EE; cursor: pointer; font-family: inherit; }
+
+.leaflet-control-zoom { display: none !important; }
+.leaflet-control-attribution { display: none !important; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-time">9:48</span>
+    <div class="status-icons">
+      <svg viewBox="0 0 24 24"><path d="M1 6l5 5 6-6 6 6 5-5"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v3"/></svg>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-left">
+      <button class="back-btn" onclick="history.back()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8FAF99" stroke-width="2" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div>
+        <div class="header-title">Impact</div>
+        <div class="header-stage">Stage 2 — Field Documentation</div>
+      </div>
+    </div>
+    <div class="offline-badge">
+      <div class="offline-dot"></div>
+      Offline ready
+    </div>
+  </div>
+
+  <!-- Zone Briefing -->
+  <div class="zone-brief">
+    <div class="zone-title">🌲 Montane Life Zone · 8,990 ft · R0025252</div>
+    <div class="zone-desc">Your land likely supports Lodgepole pine, Ponderosa pine, Aspen and Douglas-fir. Document everything you encounter — trees, wildlife, terrain, and signs of stress.</div>
+    <div class="zone-alert">
+      <span style="font-size:14px;">⚠</span>
+      <div class="zone-alert-text">Known and unknown infestations of Western Spruce Budworm, Mountain Pine Beetle and Spruce Beetle are active in Park County. Colorado drought conditions in 2026 are accelerating spread. Early documentation this summer is critical.</div>
+    </div>
+  </div>
+
+  <!-- Map with tools -->
+  <div class="map-container">
+    <div id="map"></div>
+
+    <!-- Map tools -->
+    <div class="map-tools">
+      <div class="map-tool-btn" id="markerTool" onclick="toggleTool('marker')" title="Drop a marker">
+        <svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      </div>
+      <div class="map-tool-btn" id="pencilTool" onclick="toggleTool('pencil')" title="Draw an area">
+        <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      </div>
+    </div>
+
+    <!-- Camera button -->
+    <div class="camera-label">Tap to photograph & identify</div>
+    <div class="camera-btn" onclick="showSAMCapture()">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </div>
+  </div>
+
+  <!-- Field Log -->
+  <div class="field-log">
+    <div class="log-header">
+      <div class="log-handle"></div>
+    </div>
+    <div style="padding: 0 16px 6px; display:flex; align-items:center; justify-content:space-between;">
+      <span class="log-title">Field Log</span>
+      <span class="log-count">4 observations</span>
+    </div>
+    <div class="log-items">
+      <div class="log-item">
+        <span class="log-emoji">🦡</span>
+        <div class="log-info">
+          <div class="log-name">Badger hole</div>
+          <div class="log-meta">NE corner · 9:32 AM · GPS tagged</div>
+        </div>
+        <span class="log-tag tag-wildlife">Wildlife</span>
+      </div>
+      <div class="log-item">
+        <span class="log-emoji">🌲</span>
+        <div class="log-info">
+          <div class="log-name">Snag — possible beetle entry</div>
+          <div class="log-meta">Center field · 9:38 AM · SAM identified</div>
+        </div>
+        <span class="log-tag tag-pest">⚠ Pest</span>
+      </div>
+      <div class="log-item">
+        <span class="log-emoji">🪨</span>
+        <div class="log-info">
+          <div class="log-name">Rock pile — reptile habitat</div>
+          <div class="log-meta">SW ridge · 9:41 AM · GPS tagged</div>
+        </div>
+        <span class="log-tag tag-terrain">Terrain</span>
+      </div>
+      <div class="log-pending">
+        <span style="font-size:14px;">✏️</span>
+        <span class="log-pending-text">Drawn area — "dense fir stand, check for budworm" · Pending sync</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Continue -->
+  <div class="continue-row">
+    <button class="continue-btn" onclick="alert('Proceeding to Stage 3 — Resources & Research')">
+      Continue to Resources →
+    </button>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab active">
+      <svg viewBox="0 0 24 24" stroke="#2D7A4F"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span class="tab-label" style="color:#2D7A4F">Camera</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M1 6l5 5 6-11 6 11 5-5"/><path d="M3 20h18"/></svg>
+      <span class="tab-label">Map</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <span class="tab-label">Tools</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      <span class="tab-label">Learn</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="tab-label">Chat</span>
+    </div>
+  </div>
+
+</div>
+
+<!-- Marker/Note Modal -->
+<div class="modal-overlay" id="noteModal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📍 Add Observation</div>
+    <div class="modal-subtitle">Describe what you see. Earth Steward will save this with your GPS location — even without signal.</div>
+    <textarea class="modal-input" placeholder="e.g. Badger hole near the fir stand. Signs of digging activity. Healthy indicator..." id="noteText"></textarea>
+    <div class="modal-cats">
+      <div class="modal-cat selected" onclick="selectCat(this)">🌲 Vegetation</div>
+      <div class="modal-cat" onclick="selectCat(this)">🐾 Wildlife</div>
+      <div class="modal-cat" onclick="selectCat(this)">🪲 Pest</div>
+      <div class="modal-cat" onclick="selectCat(this)">💧 Water</div>
+      <div class="modal-cat" onclick="selectCat(this)">🏔 Terrain</div>
+      <div class="modal-cat" onclick="selectCat(this)">⚠ Concern</div>
+    </div>
+    <div class="modal-btns">
+      <button class="modal-cancel" onclick="closeNote()">Cancel</button>
+      <button class="modal-save" onclick="saveNote()">Save to Field Log</button>
+    </div>
+  </div>
+</div>
+
+<!-- SAM Capture Modal -->
+<div class="sam-modal-overlay" id="samModal">
+  <div class="sam-header">
+    <span class="sam-title">📷 SAM 3 — Identifying...</span>
+    <button class="sam-close" onclick="closeSAM()">✕ Close</button>
+  </div>
+  <div class="sam-image">
+    <div class="sam-placeholder">
+      <div class="sam-placeholder-icon">🌲🪨🌿</div>
+      <div class="sam-placeholder-text">Photo captured · Analyzing scene...</div>
+    </div>
+  </div>
+  <div class="sam-detections">
+    <div class="sam-detection-title">SAM 3 detected 5 things in this photo</div>
+    <div class="sam-items">
+      <div class="sam-item">
+        <span class="sam-item-emoji">🌲</span>
+        <div class="sam-item-info">
+          <div class="sam-item-name">Ponderosa Pine</div>
+          <div class="sam-item-conf">94% confidence · Healthy canopy · No stress signs</div>
+        </div>
+        <div class="sam-item-check">✓</div>
+      </div>
+      <div class="sam-item">
+        <span class="sam-item-emoji">🪵</span>
+        <div class="sam-item-info">
+          <div class="sam-item-name">Snag — Dead Standing Tree</div>
+          <div class="sam-item-conf" style="color:#E5FF2C;">⚠ 87% confidence · Possible beetle damage</div>
+        </div>
+        <div class="sam-item-check" style="background:#E5FF2C;color:#0D2B1C;">!</div>
+      </div>
+      <div class="sam-item">
+        <span class="sam-item-emoji">🌿</span>
+        <div class="sam-item-info">
+          <div class="sam-item-name">Bunchgrass</div>
+          <div class="sam-item-conf">91% confidence · Ground cover healthy</div>
+        </div>
+        <div class="sam-item-check">✓</div>
+      </div>
+      <div class="sam-item">
+        <span class="sam-item-emoji">🪨</span>
+        <div class="sam-item-info">
+          <div class="sam-item-name">Rock outcrop</div>
+          <div class="sam-item-conf">96% confidence · Possible reptile habitat</div>
+        </div>
+        <div class="sam-item-check">✓</div>
+      </div>
+      <div class="sam-item">
+        <span class="sam-item-emoji">❓</span>
+        <div class="sam-item-info">
+          <div class="sam-item-name">Unknown shrub</div>
+          <div class="sam-item-conf" style="color:#E05555;">52% confidence · Flag for forester review</div>
+        </div>
+        <div class="sam-item-check" style="background:#E05555;">?</div>
+      </div>
+    </div>
+  </div>
+  <button class="sam-confirm" onclick="confirmSAM()">✓ Confirm & Add to Field Log</button>
+</div>
+
+<script>
+// Map
+const parcels = [{"account":"R0025252","points":[[39.018178311529276,-105.81559275626122],[39.01836713830993,-105.8161247790345],[39.02065813559606,-105.81527995040379],[39.02067279891718,-105.81120019183993],[39.018178311529276,-105.81559275626122]]},{"account":"R0025253","points":[[39.01809897312856,-105.81137866700372],[39.01810358660309,-105.8153539200896],[39.0181698116469,-105.81542702917118],[39.018178311529276,-105.81559275626122],[39.02067279891718,-105.81120019183993],[39.01809897312856,-105.81137866700372]]},{"account":"R0025254","points":[[39.01809897312856,-105.81137866700372],[39.015213522781735,-105.81157874840804],[39.01792959366049,-105.81542156155264],[39.017997630052406,-105.81535073146918],[39.01810358660309,-105.8153539200896],[39.01809897312856,-105.81137866700372]]},{"account":"R0025251","points":[[39.01836713830993,-105.8161247790345],[39.01890438757714,-105.81763654258884],[39.020652226949,-105.81691386061058],[39.02065625109686,-105.81580158280393],[39.02065813559606,-105.81527995040379],[39.01836713830993,-105.8161247790345]]}];
+
+window.onload = function() {
+  const map = L.map('map', { zoomControl: false }).setView([39.0192, -105.8134], 16);
+
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    opacity: 0.8
+  }).addTo(map);
+
+  parcels.forEach(function(p) {
+    const isYours = p.account === 'R0025252';
+    L.polygon(p.points, {
+      fillColor: isYours ? '#2D7A4F' : '#111A13',
+      fillOpacity: isYours ? 0.3 : 0.15,
+      color: isYours ? '#E5FF2C' : '#2D7A4F',
+      weight: isYours ? 2.5 : 0.5,
+      opacity: isYours ? 1 : 0.4
+    }).addTo(map);
+  });
+
+  // Sample observations on map
+  const observations = [
+    { lat: 39.0197, lng: -105.8142, emoji: '🦡', label: 'Badger hole' },
+    { lat: 39.0203, lng: -105.8128, emoji: '🌲', label: 'Snag' },
+    { lat: 39.0188, lng: -105.8148, emoji: '🪨', label: 'Rock pile' },
+  ];
+
+  observations.forEach(function(obs) {
+    const icon = L.divIcon({
+      className: '',
+      html: '<div style="background:rgba(10,15,12,0.85);border:1px solid #2D7A4F;border-radius:8px;padding:3px 6px;font-size:14px;white-space:nowrap;color:#E8F5EE;font-size:11px;display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px);">' + obs.emoji + ' <span>' + obs.label + '</span></div>',
+      iconAnchor: [40, 12]
+    });
+    L.marker([obs.lat, obs.lng], { icon: icon }).addTo(map);
+  });
+
+  // Click to add marker
+  map.on('click', function(e) {
+    if (activeTool === 'marker') {
+      showNote();
+    }
+  });
+};
+
+let activeTool = null;
+
+function toggleTool(tool) {
+  if (activeTool === tool) {
+    activeTool = null;
+    document.getElementById('markerTool').classList.remove('active');
+    document.getElementById('pencilTool').classList.remove('active');
+  } else {
+    activeTool = tool;
+    document.getElementById('markerTool').classList.toggle('active', tool === 'marker');
+    document.getElementById('pencilTool').classList.toggle('active', tool === 'pencil');
+    if (tool === 'marker') {
+      showNote();
+    } else {
+      alert('✏️ Draw mode active\n\nIn the full app you can draw a circle or outline an area on the map.\n\nA note box will appear to describe what you see.');
+    }
+  }
+}
+
+function showNote() {
+  document.getElementById('noteModal').classList.add('show');
+}
+
+function closeNote() {
+  document.getElementById('noteModal').classList.remove('show');
+  activeTool = null;
+  document.getElementById('markerTool').classList.remove('active');
+  document.getElementById('pencilTool').classList.remove('active');
+}
+
+function saveNote() {
+  closeNote();
+  alert('✓ Observation saved to field log\nSyncs when signal is available');
+}
+
+function selectCat(el) {
+  document.querySelectorAll('.modal-cat').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function showSAMCapture() {
+  document.getElementById('samModal').classList.add('show');
+}
+
+function closeSAM() {
+  document.getElementById('samModal').classList.remove('show');
+}
+
+function confirmSAM() {
+  closeSAM();
+  alert('✓ 5 observations added to field log\n\n• Ponderosa Pine\n• Snag (⚠ flagged for review)\n• Bunchgrass\n• Rock outcrop\n• Unknown shrub (flagged for forester)');
+}
+</script>
+</body>
+</html>
