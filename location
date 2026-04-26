@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Earth Steward — Location</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* iPhone shell */
+body {
+  background: #1a1a1a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  font-family: -apple-system, 'SF Pro Display', sans-serif;
+}
+
+.phone {
+  width: 390px;
+  height: 844px;
+  background: #0A0F0C;
+  border-radius: 54px;
+  border: 6px solid #2a2a2a;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 40px 80px rgba(0,0,0,0.8), inset 0 0 0 1px #333;
+}
+
+/* Status bar */
+.status-bar {
+  height: 54px;
+  background: #0A0F0C;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 0 28px 8px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.status-time { font-size: 15px; font-weight: 600; color: #E8F5EE; }
+.status-icons { display: flex; align-items: center; gap: 6px; }
+.status-icons svg { width: 16px; height: 16px; fill: #E8F5EE; }
+
+/* Header */
+.header {
+  background: #0A0F0C;
+  padding: 8px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.header-logo { display: flex; align-items: center; gap: 8px; }
+.header-icon { width: 28px; height: 28px; background: #1A2B1E; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+.header-title { font-size: 17px; font-weight: 600; color: #E8F5EE; }
+.header-subtitle { font-size: 11px; color: #4A6B54; margin-top: 1px; }
+.gps-badge { background: #1A2B1E; border: 1px solid #2D7A4F; border-radius: 20px; padding: 4px 10px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: #2D7A4F; font-weight: 500; }
+.gps-dot { width: 6px; height: 6px; border-radius: 50%; background: #2D7A4F; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* Warning banner */
+.warning-banner {
+  background: #E5FF2C;
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  z-index: 100;
+  cursor: pointer;
+}
+.warning-text { font-size: 12px; font-weight: 600; color: #0D2B1C; flex: 1; line-height: 1.3; }
+.warning-arrow { font-size: 14px; color: #0D2B1C; }
+
+/* Map */
+#map {
+  flex: 1;
+  z-index: 1;
+}
+
+/* Parcel card */
+.parcel-card {
+  background: #111A13;
+  border-top: 1px solid #1A2B1E;
+  padding: 14px 20px 10px;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.parcel-handle { width: 36px; height: 4px; background: #1A2B1E; border-radius: 2px; margin: 0 auto 12px; }
+.parcel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.parcel-id { font-size: 13px; font-weight: 700; color: #E8F5EE; }
+.parcel-badge { background: #1A2B1E; border: 1px solid #2D7A4F; border-radius: 4px; padding: 2px 8px; font-size: 10px; color: #2D7A4F; font-weight: 600; }
+.parcel-grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.parcel-item { }
+.parcel-label { font-size: 10px; color: #4A6B54; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.3px; }
+.parcel-value { font-size: 13px; font-weight: 600; color: #E8F5EE; }
+.parcel-zone { background: #1A2B1E; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.zone-text { font-size: 12px; color: #8FAF99; }
+.zone-name { font-size: 12px; font-weight: 600; color: #2D7A4F; }
+.continue-btn { background: #2D7A4F; border: none; border-radius: 12px; width: 100%; padding: 13px; font-size: 15px; font-weight: 600; color: #E8F5EE; cursor: pointer; font-family: inherit; }
+.continue-btn:active { background: #1A5235; }
+
+/* Tab bar */
+.tab-bar {
+  background: #0A0F0C;
+  border-top: 1px solid #1A2B1E;
+  height: 82px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding: 10px 0 0;
+  flex-shrink: 0;
+  z-index: 100;
+}
+.tab { display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; padding: 0 12px; }
+.tab svg { width: 24px; height: 24px; }
+.tab-label { font-size: 10px; color: #4A6B54; }
+.tab.active .tab-label { color: #2D7A4F; }
+.tab.active svg { stroke: #2D7A4F; }
+.tab svg { stroke: #4A6B54; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Leaflet overrides for dark theme */
+.leaflet-container { background: #0A0F0C !important; }
+.leaflet-control-zoom { display: none; }
+.leaflet-control-attribution { display: none; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+
+  <!-- Status Bar -->
+  <div class="status-bar">
+    <span class="status-time">9:41</span>
+    <div class="status-icons">
+      <svg viewBox="0 0 24 24"><path d="M1 6l5 5 6-6 6 6 5-5"/></svg>
+      <svg viewBox="0 0 24 24"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
+      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="18" height="11" rx="2"/><path d="M22 11v3"/></svg>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <div class="header-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2D7A4F" stroke-width="2">
+          <path d="M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7z"/>
+          <circle cx="12" cy="9" r="2.5"/>
+        </svg>
+      </div>
+      <div>
+        <div class="header-title">Earth Steward</div>
+        <div class="header-subtitle">Stage 1 — Location</div>
+      </div>
+    </div>
+    <div class="gps-badge">
+      <div class="gps-dot"></div>
+      Located
+    </div>
+  </div>
+
+  <!-- Warning Banner -->
+  <div class="warning-banner" onclick="alert('⚠ Western Spruce Budworm detected in Park County\n\n26,000 acres affected nearby.\n\nLook for: browning needles, silk webbing, defoliation on Douglas-fir and true firs.\n\nTap camera to start photographing trees.')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0D2B1C" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <span class="warning-text">⚠ Western Spruce Budworm detected nearby — tap to identify affected trees</span>
+    <span class="warning-arrow">›</span>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+  <!-- Parcel Card -->
+  <div class="parcel-card">
+    <div class="parcel-handle"></div>
+    <div class="parcel-header">
+      <span class="parcel-id">Parcel R0025252</span>
+      <span class="parcel-badge">YOUR LAND</span>
+    </div>
+    <div class="parcel-grid">
+      <div class="parcel-item">
+        <div class="parcel-label">City</div>
+        <div class="parcel-value">Hartsel</div>
+      </div>
+      <div class="parcel-item">
+        <div class="parcel-label">County</div>
+        <div class="parcel-value">Park</div>
+      </div>
+      <div class="parcel-item">
+        <div class="parcel-label">Acres</div>
+        <div class="parcel-value">11.96</div>
+      </div>
+      <div class="parcel-item">
+        <div class="parcel-label">Elevation</div>
+        <div class="parcel-value">8,990 ft</div>
+      </div>
+    </div>
+    <div class="parcel-zone">
+      <span class="zone-text">🌲 Life Zone</span>
+      <span class="zone-name">Montane (8,000–10,500 ft)</span>
+    </div>
+    <button class="continue-btn" onclick="alert('Proceeding to Stage 2 — Impact')">
+      Continue to Impact →
+    </button>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tab-bar">
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <span class="tab-label">Camera</span>
+    </div>
+    <div class="tab active">
+      <svg viewBox="0 0 24 24" stroke="#2D7A4F"><path d="M1 6l5 5 6-11 6 11 5-5"/><path d="M3 20h18"/></svg>
+      <span class="tab-label" style="color:#2D7A4F">Map</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+      <span class="tab-label">Tools</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+      <span class="tab-label">Learn</span>
+    </div>
+    <div class="tab">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+      <span class="tab-label">Chat</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const parcels = [{"account":"R0013519","owner":"ROTHDEUTSCH KENNETH","acres":42.0,"land_type":"Vacant Land","points":[[39.02310245114084,-105.81561878656676],[39.02325040352597,-105.81467223390453],[39.02333679113155,-105.813572628449],[39.023303544733096,-105.81264054647262],[39.023042866592625,-105.81103585233576],[39.02067279891718,-105.81120019183993],[39.02065813559606,-105.81527995040379],[39.02065625109686,-105.81580158280393],[39.02064771350131,-105.81815818268458],[39.02254409433151,-105.81803968517767],[39.0228995062455,-105.81662619888324],[39.02310245114084,-105.81561878656676]]},{"account":"R0025250","owner":"BADGER BASIN RANCH INC","acres":5.81,"land_type":"Agricultural","points":[[39.01890438757714,-105.81763654258884],[39.01955078043593,-105.81945580976645],[39.02008411905451,-105.81863394984376],[39.02022321843649,-105.81844731663226],[39.02031002463201,-105.81831156704789],[39.02040587183006,-105.81823699714492],[39.020515734163844,-105.81817693414992],[39.02064762647603,-105.81818212241305],[39.020647729332666,-105.81815370675827],[39.020652226949,-105.81691386061058],[39.01890438757714,-105.81763654258884]]},{"account":"R0025251","owner":"GREINER A LEE","acres":8.1,"land_type":"Agricultural","points":[[39.01836713830993,-105.8161247790345],[39.01890438757714,-105.81763654258884],[39.020652226949,-105.81691386061058],[39.02065625109686,-105.81580158280393],[39.02065813559606,-105.81527995040379],[39.01836713830993,-105.8161247790345]]},{"account":"R0025252","owner":"HEATON JOEL R","acres":11.96,"land_type":"Agricultural","points":[[39.018178311529276,-105.81559275626122],[39.01836713830993,-105.8161247790345],[39.02065813559606,-105.81527995040379],[39.02067279891718,-105.81120019183993],[39.018178311529276,-105.81559275626122]]},{"account":"R0025253","owner":"TUEL CAITLYN","acres":12.0,"land_type":"Agricultural","points":[[39.01809897312856,-105.81137866700372],[39.01810358660309,-105.8153539200896],[39.0181698116469,-105.81542702917118],[39.018178311529276,-105.81559275626122],[39.02067279891718,-105.81120019183993],[39.01809897312856,-105.81137866700372]]},{"account":"R0025254","owner":"BADGER BASIN RANCH INC","acres":11.76,"land_type":"Agricultural","points":[[39.01809897312856,-105.81137866700372],[39.015213522781735,-105.81157874840804],[39.01792959366049,-105.81542156155264],[39.017997630052406,-105.81535073146918],[39.01810358660309,-105.8153539200896],[39.01809897312856,-105.81137866700372]]},{"account":"R0025255","owner":"BAKER LIV TRUST DTD 11/8/21","acres":15.5,"land_type":"Vacant Land","points":[[39.01790673484998,-105.81553001355387],[39.01792959366049,-105.81542156155264],[39.015213522781735,-105.81157874840804],[39.01518244536979,-105.8161809175214],[39.016813513232414,-105.81590980836081],[39.017959845912316,-105.8157192624913],[39.01790673484998,-105.81553001355387]]},{"account":"R0025256","owner":"WMD GLOBAL ENTERPRISES LLC","acres":3.48,"land_type":"Vacant Land","points":[[39.017959845912316,-105.8157192624913],[39.016813513232414,-105.81590980836081],[39.017219113409894,-105.81738334215498],[39.01836268096734,-105.81666788356179],[39.017959845912316,-105.8157192624913]]},{"account":"R0025257","owner":"WADE SHERRY L","acres":3.82,"land_type":"Residential","points":[[39.01836268096734,-105.81666788356179],[39.017219113409894,-105.81738334215498],[39.01752554042076,-105.81849628796725],[39.018191014359196,-105.81807696403445],[39.0187453465812,-105.81772751364895],[39.01836268096734,-105.81666788356179]]},{"account":"R0025258","owner":"ROSS CRAIG C","acres":3.31,"land_type":"Vacant Land","points":[[39.0187453465812,-105.81772751364895],[39.018191014359196,-105.81807696403445],[39.01868467561355,-105.8197476158403],[39.01946149050425,-105.81971189057556],[39.0187453465812,-105.81772751364895]]},{"account":"R0047896","owner":"TRUST DTD 4/16/2021","acres":521.62,"land_type":"Agricultural","points":[[39.0211328714748,-105.80188513988382],[39.02070806259649,-105.80191604799447],[39.01706707062387,-105.80218091572708],[39.01342607783702,-105.80244578396564],[39.006175842675475,-105.80292942326253],[39.00617575127172,-105.80295243559473],[39.0061572716265,-105.80757683242766],[39.00613872028642,-105.8122243070139],[39.006107311897196,-105.8168633126847],[39.00607570966683,-105.82150231534588],[39.009698256450505,-105.82120608305804],[39.013320803284074,-105.82090982280972],[39.01332572629076,-105.82028981486363],[39.013327555357144,-105.8200593584568],[39.01332964856521,-105.8197955364752],[39.01334929745251,-105.81731535691381],[39.013357268304645,-105.81630737725165],[39.013393569497154,-105.81170490280067],[39.015213522781735,-105.81157874840804],[39.01809897312856,-105.81137866700372],[39.02067279891718,-105.81120019183993],[39.023042866592625,-105.81103585233576],[39.022326381966806,-105.80776579989728],[39.02149598417547,-105.8040268880182],[39.02115052434844,-105.80213102815443],[39.0211328714748,-105.80188513988382]]}];
+
+window.onload = function() {
+  // Start zoomed into your parcel
+  const map = L.map('map', { zoomControl: false }).setView([39.0192, -105.8134], 16);
+
+  // Satellite layer
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    opacity: 0.85
+  }).addTo(map);
+
+  parcels.forEach(function(parcel) {
+    const isYours = parcel.account === 'R0025252';
+    const latlngs = parcel.points.map(function(p) { return [p[0], p[1]]; });
+
+    L.polygon(latlngs, {
+      fillColor: isYours ? '#2D7A4F' : '#111A13',
+      fillOpacity: isYours ? 0.45 : 0.2,
+      color: isYours ? '#E5FF2C' : '#2D7A4F',
+      weight: isYours ? 3 : 0.5,
+      opacity: isYours ? 1 : 0.4
+    }).addTo(map);
+  });
+};
+</script>
+</body>
+</html>
